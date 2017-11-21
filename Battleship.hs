@@ -32,7 +32,7 @@ makeBoardStrings xs = map (map toChar) xs
           toChar Empty = '#'
           toChar Destroyed = ' '
           toChar (Ship n) = '#'
-          toChar (Damaged n) = 'O'
+          toChar (Damaged n) = '!'
 
 formatBoardStrings :: [String] -> String
 formatBoardStrings b = unlines $ xnums : border : middle ++ [border]
@@ -60,6 +60,7 @@ shoot :: Piece -> Piece
 shoot Destroyed = Destroyed
 shoot Empty = Destroyed
 shoot (Ship n) = Damaged n
+shoot (Damaged n) = Damaged n
 
 sendInfo :: String -> IO ()
 sendInfo s = putStrLn $ "info> " ++ s
@@ -110,11 +111,13 @@ gameLoop state = do
                     gameLoop state
                 Just p -> do
                     case p of
-                        Ship n ->
+                        Ship n -> do
                             sendInfo ("Hit a ship at " ++ (show (x,y)))
-                        Empty -> 
+                        Empty -> do
                             sendInfo ("Destroyed a tile at " ++ (show (x,y)))
-                        Destroyed -> 
+                        Destroyed -> do
+                            sendWarning ("You've already destroyed " ++ (show (x,y)))
+                        Damaged n -> do
                             sendWarning ("You've already destroyed " ++ (show (x,y)))
                     gameLoop $ state { board = cmat (x,y) (shoot p) $ board state }          
 
