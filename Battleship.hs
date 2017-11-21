@@ -2,37 +2,34 @@ module Battleship where
 
 import Data.List (intersperse, foldl')
 
-data Piece 
+data Tile 
     = Empty 
-    | Destroyed 
+    | Destroyed Int 
     | Ship Int
-    | Damaged Int
-    deriving (Show, Eq)
+
+data Piece = Piece 
+    { tile    :: Tile
+    , visible :: Bool }
 
 data Action
-    = Exit
-    | Shoot (Int, Int)
-    | Prompt String
+    = Exit 
+    | Shoot (Int, Int) 
+    | Prompt String 
     deriving (Read)
 
 tboard =
-    [   [   Ship 0, Ship 0, Ship 0, Ship 0, Ship 0, Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
-        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ]   ]
+    [   [   Piece (Ship 0) False,   Piece (Ship 0) False,   Piece (Ship 0) False,      Piece Empty False],
+        [      Piece Empty False,      Piece Empty False,      Piece Empty False,   Piece (Ship 1) False],
+        [      Piece Empty False,      Piece Empty False,      Piece Empty False,   Piece (Ship 1) False],
+        [   Piece (Ship 2) False,   Piece (Ship 2) False,      Piece Empty False,   Piece (Ship 1) False]   ]
 
 makeBoardStrings :: [[Piece]] -> [String]
 makeBoardStrings xs = map (map toChar) xs
     where toChar :: Piece -> Char
-          toChar Empty = '#'
-          toChar Destroyed = ' '
-          toChar (Ship n) = '#'
-          toChar (Damaged n) = '!'
+          toChar (Piece _             False) = '#'
+          toChar (Piece (Ship n)      _)     = '!'
+          toChar (Piece (Destroyed n) _)     = head $ show n
+          toChar (Piece Empty         _)     = ' '
 
 formatBoardStrings :: [String] -> String
 formatBoardStrings b = unlines $ xnums : border : middle ++ [border]
@@ -57,10 +54,7 @@ cmat :: (Int, Int) -> a -> [[a]] -> [[a]]
 cmat (i,j) p xs = take i xs ++ [crow j p (xs !! i)] ++ drop (i+1) xs
 
 shoot :: Piece -> Piece
-shoot Destroyed = Destroyed
-shoot Empty = Destroyed
-shoot (Ship n) = Damaged n
-shoot (Damaged n) = Damaged n
+shoot p = p { visible = True }
 
 sendInfo :: String -> IO ()
 sendInfo s = putStrLn $ "info> " ++ s
@@ -111,15 +105,15 @@ gameLoop state = do
                     gameLoop state
                 Just p -> do
                     case p of
-                        Ship n -> do
+                        Piece _ True -> do
+                            sendWarning ("You've already destroyed " ++ (show (x,y)))
+                        Piece (Ship n) _ -> do
                             sendInfo ("Hit a ship at " ++ (show (x,y)))
-                        Empty -> do
+                        Piece Empty _ -> do
                             sendInfo ("Destroyed a tile at " ++ (show (x,y)))
-                        Destroyed -> do
+                        Piece (Destroyed n) _ -> do
                             sendWarning ("You've already destroyed " ++ (show (x,y)))
-                        Damaged n -> do
-                            sendWarning ("You've already destroyed " ++ (show (x,y)))
-                    gameLoop $ state { board = cmat (x,y) (shoot p) $ board state }          
+                    gameLoop $ state { board = cmat (x,y) (shoot p) $ board state }
 
 main :: IO ()
 main = do
