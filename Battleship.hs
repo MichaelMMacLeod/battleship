@@ -15,8 +15,6 @@ data Action
     | Prompt String
     deriving (Read)
 
--- tboard = [[Empty | r <- [1..9]] | c <- [1..9]]
-
 tboard =
     [   [   Ship 0, Ship 0, Ship 0, Ship 0, Ship 0, Empty,  Empty,  Empty,  Empty   ],
         [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
@@ -62,16 +60,6 @@ shoot :: Piece -> Piece
 shoot Destroyed = Destroyed
 shoot Empty = Destroyed
 shoot (Ship n) = Damaged n
-
-hitcheck :: Piece -> Piece -> Bool
-hitcheck (Ship n) Destroyed = True
-hitcheck _ _ = False
-
-hitr :: [Piece] -> [Piece] -> Bool
-hitr r r' = foldl' (||) False (zipWith hitcheck r r')
-
-hitm :: [[Piece]] -> [[Piece]] -> Bool
-hitm m m' = foldl' (||) False (zipWith hitr m m')
 
 sendInfo :: String -> IO ()
 sendInfo s = putStrLn $ "info> " ++ s
