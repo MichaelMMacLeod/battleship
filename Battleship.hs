@@ -1,6 +1,6 @@
 module Battleship where
 
-import Data.List (intersperse, foldl')
+import Data.List (intersperse)
 
 data Tile 
     = Empty 
@@ -41,17 +41,9 @@ formatBoardStrings b = unlines $ xnums : border : middle ++ [border]
 putBoard :: [[Piece]] -> IO ()
 putBoard = putStr . formatBoardStrings . makeBoardStrings
 
--- determines if (x,y) is a valid location in xs
-isIn :: (Int, Int) -> [[a]] -> Bool
-isIn (x,y) xs = x >= 0 && y >= 0 && x < length xs && y < length (head xs)
-
--- replace a value in a list
-crow :: Int -> a -> [a] -> [a]
-crow i p xs = take i xs ++ [p] ++ drop (i+1) xs
-
--- replace a value in a 2d list
-cmat :: (Int, Int) -> a -> [[a]] -> [[a]]
-cmat (i,j) p xs = take i xs ++ [crow j p (xs !! i)] ++ drop (i+1) xs
+replace :: (Int, Int) -> a -> [[a]] -> [[a]]
+replace (r,c) x' xs = take c xs ++ [replaceRow c x' (xs !! r)] ++ drop (r + 1) xs
+    where replaceRow c x' xs = take c xs ++ [x'] ++ drop (c + 1) xs
 
 shoot :: Piece -> Piece
 shoot p = p { visible = True }
@@ -113,7 +105,7 @@ gameLoop state = do
                             sendInfo ("Destroyed a tile at " ++ (show (x,y)))
                         Piece (Destroyed n) _ -> do
                             sendWarning ("You've already destroyed " ++ (show (x,y)))
-                    gameLoop $ state { board = cmat (x,y) (shoot p) $ board state }
+                    gameLoop $ state { board = replace (x,y) (shoot p) $ board state }
 
 main :: IO ()
 main = do
