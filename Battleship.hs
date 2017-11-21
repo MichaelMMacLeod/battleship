@@ -87,32 +87,36 @@ locate (x,y) xs =
         width  = length xs
         height = length (head xs)
 
+data GameState = GameState
+    { board :: [[Piece]]
+    , prompt :: String
+    }
 
-gameLoop :: String -> [[Piece]] -> IO ()
-gameLoop prompt board = do
-    beginTurn board
-    input <- getInput prompt
+gameLoop :: GameState -> IO ()
+gameLoop state = do
+    beginTurn $ board state
+    input <- getInput $ prompt state
     case read input of
-        Exit -> 
+        Exit -> do
             sendInfo "Thanks for playing!"
         Prompt s -> do
-            sendInfo ("Prompt changed from \"" ++ prompt ++ "\" to \"" ++ s ++ "\"")
-            gameLoop s board
+            sendInfo ("Prompt changed from \"" ++ prompt state ++ "\" to \"" ++ s ++ "\"")
+            gameLoop $ state { prompt = s }
         Shoot (x,y) -> do
-            let piece = locate (x,y) board
+            let piece = locate (x,y) $ board state
             case piece of
                 Nothing -> do
                     sendWarning (show (x,y) ++ " is not on the game board!")
-                    gameLoop prompt board
+                    gameLoop state
                 Just p -> do
                     case p of
-                        Ship n -> 
+                        Ship n ->
                             sendInfo ("Hit a ship at " ++ (show (x,y)))
                         Empty -> 
                             sendInfo ("Destroyed a tile at " ++ (show (x,y)))
                         Destroyed -> 
                             sendWarning ("You've already destroyed " ++ (show (x,y)))
-                    gameLoop prompt $ cmat (x,y) (shoot p) board           
+                    gameLoop $ state { board = cmat (x,y) (shoot p) $ board state }          
 
 main :: IO ()
 main = do
@@ -121,4 +125,4 @@ main = do
     putStrLn "|      BATTLESHIP      |"
     putStrLn "+----------------------+"
     putStrLn ""
-    gameLoop "Player" tboard
+    gameLoop $ GameState { prompt = "Player", board = tboard }
