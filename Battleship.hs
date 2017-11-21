@@ -77,27 +77,42 @@ getInput prompt = do
     putStr (prompt ++ "> ")
     getLine
 
+locate :: (Int, Int) -> [[a]] -> Maybe a
+locate (x,y) xs =
+    if x >= 0 && y >= 0 && x < width && y < height then
+        Just (xs !! x !! y)
+    else
+        Nothing
+    where 
+        width  = length xs
+        height = length (head xs)
+
+
 gameLoop :: String -> [[Piece]] -> IO ()
 gameLoop prompt board = do
     beginTurn board
     input <- getInput prompt
     case read input of
-        Exit -> sendInfo "Thanks for playing!"
+        Exit -> 
+            sendInfo "Thanks for playing!"
         Prompt s -> do
             sendInfo ("Prompt changed from \"" ++ prompt ++ "\" to \"" ++ s ++ "\"")
             gameLoop s board
         Shoot (x,y) -> do
-            if (x,y) `isIn` board then do
-                let piece = board !! x !! y
-                case piece of
-                    Ship n    -> sendInfo ("Hit a ship at " ++ (show (x,y)))
-                    Empty     -> sendInfo ("Destroyed a tile at " ++ (show (x,y)))
-                    Destroyed -> sendWarning ("You've already destroyed " ++ (show (x,y)))
-                let board' = cmat (x,y) (shoot piece) board
-                gameLoop prompt $ board'
-            else do
-                sendWarning (show (x,y) ++ " is not on the game board!")
-                gameLoop prompt board
+            let piece = locate (x,y) board
+            case piece of
+                Nothing -> do
+                    sendWarning (show (x,y) ++ " is not on the game board!")
+                    gameLoop prompt board
+                Just p -> do
+                    case p of
+                        Ship n -> 
+                            sendInfo ("Hit a ship at " ++ (show (x,y)))
+                        Empty -> 
+                            sendInfo ("Destroyed a tile at " ++ (show (x,y)))
+                        Destroyed -> 
+                            sendWarning ("You've already destroyed " ++ (show (x,y)))
+                    gameLoop prompt $ cmat (x,y) (shoot p) board           
 
 main :: IO ()
 main = do
