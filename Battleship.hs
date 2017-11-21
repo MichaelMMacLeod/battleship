@@ -1,12 +1,13 @@
 module Battleship where
 
-import Data.List (intersperse)
+import Data.List (intersperse, foldl')
 
 data Piece 
     = Empty 
     | Destroyed 
-    | Ship Int 
-    deriving (Show)
+    | Ship Int
+    | Damaged Int
+    deriving (Show, Eq)
 
 data Action
     = Exit
@@ -14,7 +15,18 @@ data Action
     | Prompt String
     deriving (Read)
 
-tboard = [[Empty | r <- [1..9]] | c <- [1..9]]
+-- tboard = [[Empty | r <- [1..9]] | c <- [1..9]]
+
+tboard =
+    [   [   Ship 0, Ship 0, Ship 0, Ship 0, Ship 0, Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ],
+        [   Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty,  Empty   ]   ]
 
 makeBoardStrings :: [[Piece]] -> [String]
 makeBoardStrings xs = map (map toChar) xs
@@ -22,6 +34,7 @@ makeBoardStrings xs = map (map toChar) xs
           toChar Empty = '#'
           toChar Destroyed = ' '
           toChar (Ship n) = '#'
+          toChar (Damaged n) = 'O'
 
 formatBoardStrings :: [String] -> String
 formatBoardStrings b = unlines $ xnums : border : middle ++ [border]
@@ -41,13 +54,24 @@ isIn (x,y) xs = x >= 0 && y >= 0 && x < length xs && y < length (head xs)
 crow :: Int -> a -> [a] -> [a]
 crow i p xs = take i xs ++ [p] ++ drop (i+1) xs
 
--- replace a value in a 2d list "
+-- replace a value in a 2d list
 cmat :: (Int, Int) -> a -> [[a]] -> [[a]]
 cmat (i,j) p xs = take i xs ++ [crow j p (xs !! i)] ++ drop (i+1) xs
 
--- shoot a piece, replacing it with Destroyed
-shoot :: (Int, Int) -> [[Piece]] -> [[Piece]]
-shoot (x,y) xs = cmat (x,y) Destroyed xs
+shoot :: Piece -> Piece
+shoot Destroyed = Destroyed
+shoot Empty = Destroyed
+shoot (Ship n) = Damaged n
+
+hitcheck :: Piece -> Piece -> Bool
+hitcheck (Ship n) Destroyed = True
+hitcheck _ _ = False
+
+hitr :: [Piece] -> [Piece] -> Bool
+hitr r r' = foldl' (||) False (zipWith hitcheck r r')
+
+hitm :: [[Piece]] -> [[Piece]] -> Bool
+hitm m m' = foldl' (||) False (zipWith hitr m m')
 
 sendInfo :: String -> IO ()
 sendInfo s = putStrLn $ "info> " ++ s
@@ -55,12 +79,20 @@ sendInfo s = putStrLn $ "info> " ++ s
 sendWarning :: String -> IO ()
 sendWarning s = putStrLn $ "Warning> " ++ s
 
+beginTurn :: [[Piece]] -> IO ()
+beginTurn b = do
+    putBoard b
+    sendInfo "Commands: Shoot (x,y) | Exit | Prompt \"Your Name\""
+
+getInput :: String -> IO String
+getInput prompt = do
+    putStr (prompt ++ "> ")
+    getLine
+
 gameLoop :: String -> [[Piece]] -> IO ()
 gameLoop prompt board = do
-    putBoard board
-    sendInfo "Commands: Shoot (x,y) | Exit | Prompt s"
-    putStr (prompt ++ "> ")
-    input <- getLine
+    beginTurn board
+    input <- getInput prompt
     case read input of
         Exit -> sendInfo "Thanks for playing!"
         Prompt s -> do
@@ -68,8 +100,13 @@ gameLoop prompt board = do
             gameLoop s board
         Shoot (x,y) -> do
             if (x,y) `isIn` board then do
-                sendInfo ("Destroyed tile " ++ show (x,y))
-                gameLoop prompt $ shoot (x,y) board
+                let piece = board !! x !! y
+                case piece of
+                    Ship n    -> sendInfo ("Hit a ship at " ++ (show (x,y)))
+                    Empty     -> sendInfo ("Destroyed a tile at " ++ (show (x,y)))
+                    Destroyed -> sendWarning ("You've already destroyed " ++ (show (x,y)))
+                let board' = cmat (x,y) (shoot piece) board
+                gameLoop prompt $ board'
             else do
                 sendWarning (show (x,y) ++ " is not on the game board!")
                 gameLoop prompt board
